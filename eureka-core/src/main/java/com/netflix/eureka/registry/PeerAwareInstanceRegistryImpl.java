@@ -84,7 +84,7 @@ import javax.inject.Singleton;
  * {@link com.netflix.eureka.EurekaServerConfig#getRenewalThresholdUpdateIntervalMs()}, eureka
  * perceives this as a danger and stops expiring instances.
  * </p>
- *
+ * 如果当前 Eureka Server 获取心跳的比例低于一定的比例的话，就会进入自我保护
  * @author Karthik Ranganathan, Greg Kim
  *
  */
@@ -147,9 +147,13 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
 
     @Override
     public void init(PeerEurekaNodes peerEurekaNodes) throws Exception {
+        // 启动每分钟监控任务
         this.numberOfReplicationsLastMin.start();
         this.peerEurekaNodes = peerEurekaNodes;
+        // 初始化注册表缓存
         initializedResponseCache();
+        // 启动一个调度任务，定时更新注册表中服务实例数量，
+        // 如果从别的 eureka server 中获取的服务实例，大于当前服务实例的数量，会重新计算一下，保证和其他服务实例保持同步
         scheduleRenewalThresholdUpdateTask();
         initRemoteRegionRegistry();
 
@@ -193,7 +197,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
                            public void run() {
                                updateRenewalThreshold();
                            }
-                       }, serverConfig.getRenewalThresholdUpdateIntervalMs(),
+                       }, serverConfig.getRenewalThresholdUpdateIntervalMs(), // 15 min
                 serverConfig.getRenewalThresholdUpdateIntervalMs());
     }
 
@@ -206,16 +210,18 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     public int syncUp() {
         // Copy entire entry from neighboring DS node
         int count = 0;
-
+        // 默认重试 5 次
         for (int i = 0; ((i < serverConfig.getRegistrySyncRetries()) && (count == 0)); i++) {
             if (i > 0) {
                 try {
+                    // 第一次没有拉到，会等待 30s，说明自己本地的 eureka client 还没有从任何 eureka server 中获取任何注册表
                     Thread.sleep(serverConfig.getRegistrySyncRetryWaitMs());
                 } catch (InterruptedException e) {
                     logger.warn("Interrupted during registry transfer..");
                     break;
                 }
             }
+            // 将自己作为 eureka client 找任意一个 eureka server 拉去注册表，将拉去到的注册表注册到本地
             Applications apps = eurekaClient.getApplications();
             for (Application app : apps.getRegisteredApplications()) {
                 for (InstanceInfo instance : app.getInstances()) {
@@ -236,7 +242,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     @Override
     public void openForTraffic(ApplicationInfoManager applicationInfoManager, int count) {
         // Renewals happen every 30 seconds and for a minute it should be a factor of 2.
+        // 如果有 20 个节点，一分钟就是 40
         this.expectedNumberOfRenewsPerMin = count * 2;
+        // 40 * 0.85 = 34
         this.numberOfRenewsPerMinThreshold =
                 (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
         logger.info("Got " + count + " instances from neighboring DS node");
@@ -380,6 +388,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
             synchronized (lock) {
                 if (this.expectedNumberOfRenewsPerMin > 0) {
                     // Since the client wants to cancel it, reduce the threshold (1 for 30 seconds, 2 for a minute)
+                    // 服务下线的时候，每分钟心跳 - 2
                     this.expectedNumberOfRenewsPerMin = this.expectedNumberOfRenewsPerMin - 2;
                     this.numberOfRenewsPerMinThreshold =
                             (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
@@ -400,6 +409,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * @param isReplication
      *            true if this is a replication event from other replica nodes,
      *            false otherwise.
+     *
+     *            服务注册过来的时候，isReplication 是 false
+     *            当服务注册同步给其他服务的时候，isReplication 是 true
      */
     @Override
     public void register(final InstanceInfo info, final boolean isReplication) {
@@ -407,7 +419,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         if (info.getLeaseInfo() != null && info.getLeaseInfo().getDurationInSecs() > 0) {
             leaseDuration = info.getLeaseInfo().getDurationInSecs();
         }
+        // 调用父类的方法，完成注册
         super.register(info, leaseDuration, isReplication);
+        // 将注册信息同步给其他服务
         replicateToPeers(Action.Register, info.getAppName(), info.getId(), info, null, isReplication);
     }
 
@@ -478,10 +492,14 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
 
     @Override
     public boolean isLeaseExpirationEnabled() {
+        // 默认为 true，如果关闭自我保护机制，怎不允许过期服务实例
         if (!isSelfPreservationModeEnabled()) {
             // The self preservation mode is disabled, hence allowing the instances to expire.
             return true;
         }
+        // numberOfRenewsPerMinThreshold 期望一分钟发送多少次心跳的阈值 服务实例个数 * 0.85，该值在 openForTraffic 方法中进行初始化
+        // getNumOfRenewsInLastMin 上一分钟一共发了多少次心跳
+        // 如果上一分钟的心跳次数小于阈值，则启用自我保护状态，不操作服务实例过期，返回 false
         return numberOfRenewsPerMinThreshold > 0 && getNumOfRenewsInLastMin() > numberOfRenewsPerMinThreshold;
     }
 
@@ -578,6 +596,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
             type = com.netflix.servo.annotations.DataSourceType.GAUGE)
     @Override
     public int isBelowRenewThresold() {
+        // 上一分钟心跳次数 < 期望的心跳次数
         if ((getNumOfRenewsInLastMin() <= numberOfRenewsPerMinThreshold)
                 &&
                 ((this.startupTime > 0) && (System.currentTimeMillis() > this.startupTime + (serverConfig.getWaitTimeInMsWhenSyncEmpty())))) {
@@ -624,6 +643,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
                 numberOfReplicationsLastMin.increment();
             }
             // If it is a replication already, do not replicate again as this will create a poison replication
+            // 如果 isReplication 为 true，直接 return 了，同步服务注册信息仅在自己本地完成，其他节点注册，由发起者执行
             if (peerEurekaNodes == Collections.EMPTY_LIST || isReplication) {
                 return;
             }

@@ -74,7 +74,7 @@ public class Applications {
 
     @XStreamImplicit
     private AbstractQueue<Application> applications;
-
+    // 提供了多种数据结构，通过多种map来获取 application
     private Map<String, Application> appNameApplicationMap = new ConcurrentHashMap<String, Application>();
     private Map<String, AbstractQueue<InstanceInfo>> virtualHostNameAppMap = new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();
     private Map<String, AbstractQueue<InstanceInfo>> secureVirtualHostNameAppMap = new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();

@@ -85,6 +85,8 @@ public class PeerEurekaNodes {
                 }
         );
         try {
+            // resolvePeerUrls() 解析配置文件中 url 地址
+            // 根据给定的 url，创建 eureka 节点
             updatePeerEurekaNodes(resolvePeerUrls());
             Runnable peersUpdateTask = new Runnable() {
                 @Override
@@ -99,7 +101,7 @@ public class PeerEurekaNodes {
             };
             taskExecutor.scheduleWithFixedDelay(
                     peersUpdateTask,
-                    serverConfig.getPeerEurekaNodesUpdateIntervalMs(),
+                    serverConfig.getPeerEurekaNodesUpdateIntervalMs(), // 10 min
                     serverConfig.getPeerEurekaNodesUpdateIntervalMs(),
                     TimeUnit.MILLISECONDS
             );

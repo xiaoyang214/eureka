@@ -120,8 +120,9 @@ public class ExampleEurekaClient {
         injectEurekaConfiguration();
         ExampleEurekaClient sampleClient = new ExampleEurekaClient();
 
-        // create the client
+        // create the client 加载 eureka-client.properties 配置文件, 构造 ApplicationInfoManager, 构建 InstanceInfo, InstanceConfig
         ApplicationInfoManager applicationInfoManager = initializeApplicationInfoManager(new MyDataCenterInstanceConfig());
+        // DiscoveryClient
         EurekaClient client = initializeEurekaClient(applicationInfoManager, new DefaultEurekaClientConfig());
 
         // use the client

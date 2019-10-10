@@ -60,6 +60,7 @@ public class Lease<T> {
      * {@link #DEFAULT_DURATION_IN_SECS}.
      */
     public void renew() {
+        // 当前时间戳 + 90 s
         lastUpdateTimestamp = System.currentTimeMillis() + duration;
 
     }
@@ -100,7 +101,7 @@ public class Lease<T> {
     /**
      * Checks if the lease of a given {@link com.netflix.appinfo.InstanceInfo} has expired or not.
      *
-     * Note that due to renew() doing the 'wrong" thing and setting lastUpdateTimestamp to +duration more than
+     * Note that due to renew() doing the 'wrong" thing and setting lastUpdateTimestamp to + duration more than
      * what it should be, the expiry will actually be 2 * duration. This is a minor bug and should only affect
      * instances that ungracefully shutdown. Due to possible wide ranging impact to existing usage, this will
      * not be fixed.
@@ -108,6 +109,11 @@ public class Lease<T> {
      * @param additionalLeaseMs any additional lease time to add to the lease evaluation in ms.
      */
     public boolean isExpired(long additionalLeaseMs) {
+        // evictionTimestamp > 0 说明当前 lease 已经调用了 cancel 方法
+        // 服务发送保持 renew 的时候，设置的租约信息 lastUpdateTimestamp，最后一次活跃时间 上一次续约时间 + 90s + 补偿时间
+        //                                                                               19:58:09  + 90s + 90s = 20:01:09
+        // 由于在设置 lastUpdateTimestamp 的时候，已经加过一次 duration ，所有这个里面有两个 duration
+        // 所以需要等待两个 90s = 180s 之后，如果没有心跳，才会认为服务实例宕机
         return (evictionTimestamp > 0 || System.currentTimeMillis() > (lastUpdateTimestamp + duration + additionalLeaseMs));
     }
 

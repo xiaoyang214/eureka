@@ -86,6 +86,7 @@ public abstract class AbstractJersey2EurekaHttpClient implements EurekaHttpClien
         String urlPath = "apps/" + info.getAppName();
         Response response = null;
         try {
+            // -XPOST http://localhost:8080/v2/apps/ServiceA
             Builder resourceBuilder = jerseyClient.target(serviceUrl).path(urlPath).request();
             addExtraProperties(resourceBuilder);
             addExtraHeaders(resourceBuilder);
@@ -127,6 +128,7 @@ public abstract class AbstractJersey2EurekaHttpClient implements EurekaHttpClien
 
     @Override
     public EurekaHttpResponse<InstanceInfo> sendHeartBeat(String appName, String id, InstanceInfo info, InstanceStatus overriddenStatus) {
+        // http://localhost:8080/v2/apps/ServiceA/i-000001
         String urlPath = "apps/" + appName + '/' + id;
         Response response = null;
         try {
@@ -141,6 +143,7 @@ public abstract class AbstractJersey2EurekaHttpClient implements EurekaHttpClien
             addExtraProperties(requestBuilder);
             addExtraHeaders(requestBuilder);
             requestBuilder.accept(MediaType.APPLICATION_JSON_TYPE);
+            // 发送 put 请求，处理逻辑在 InstanceResource 中 @PUT 方法
             response = requestBuilder.put(Entity.entity("{}", MediaType.APPLICATION_JSON_TYPE)); // Jersey2 refuses to handle PUT with no body
             EurekaHttpResponseBuilder<InstanceInfo> eurekaResponseBuilder = anEurekaHttpResponse(response.getStatus(), InstanceInfo.class).headers(headersOf(response));
             if (response.hasEntity()) {

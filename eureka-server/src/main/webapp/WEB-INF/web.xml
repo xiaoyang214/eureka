@@ -4,82 +4,89 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
 	http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
-  <listener>
-    <listener-class>com.netflix.eureka.EurekaBootStrap</listener-class>
-  </listener>
+    <listener>
+        <listener-class>com.netflix.eureka.EurekaBootStrap</listener-class>
+    </listener>
 
-  <filter>
-    <filter-name>statusFilter</filter-name>
-    <filter-class>com.netflix.eureka.StatusFilter</filter-class>
-  </filter>
+    <!-- 负责状态相关的处理逻辑 -->
+    <filter>
+        <filter-name>statusFilter</filter-name>
+        <filter-class>com.netflix.eureka.StatusFilter</filter-class>
+    </filter>
 
-  <filter>
-    <filter-name>requestAuthFilter</filter-name>
-    <filter-class>com.netflix.eureka.ServerRequestAuthFilter</filter-class>
-  </filter>
-  <filter>
-    <filter-name>rateLimitingFilter</filter-name>
-    <filter-class>com.netflix.eureka.RateLimitingFilter</filter-class>
-  </filter>
-  <filter>
-    <filter-name>gzipEncodingEnforcingFilter</filter-name>
-    <filter-class>com.netflix.eureka.GzipEncodingEnforcingFilter</filter-class>
-  </filter>
+    <!-- 对请求进行授权的过滤器 -->
+    <filter>
+        <filter-name>requestAuthFilter</filter-name>
+        <filter-class>com.netflix.eureka.ServerRequestAuthFilter</filter-class>
+    </filter>
 
-  <filter>
-    <filter-name>jersey</filter-name>
-    <filter-class>com.sun.jersey.spi.container.servlet.ServletContainer</filter-class>
-    <init-param>
-      <param-name>com.sun.jersey.config.property.WebPageContentRegex</param-name>
-      <param-value>/(flex|images|js|css|jsp)/.*</param-value>
-    </init-param>
-    <init-param>
-      <param-name>com.sun.jersey.config.property.packages</param-name>
-      <param-value>com.sun.jersey;com.netflix</param-value>
-    </init-param>
+    <!-- 负责限流相关的处理逻辑 -->
+    <filter>
+        <filter-name>rateLimitingFilter</filter-name>
+        <filter-class>com.netflix.eureka.RateLimitingFilter</filter-class>
+    </filter>
 
-    <!-- GZIP content encoding/decoding -->
-    <init-param>
-      <param-name>com.sun.jersey.spi.container.ContainerRequestFilters</param-name>
-      <param-value>com.sun.jersey.api.container.filter.GZIPContentEncodingFilter</param-value>
-    </init-param>
-    <init-param>
-      <param-name>com.sun.jersey.spi.container.ContainerResponseFilters</param-name>
-      <param-value>com.sun.jersey.api.container.filter.GZIPContentEncodingFilter</param-value>
-    </init-param>
-  </filter>
+    <!-- 负责 gzip 和 encoding 的处理逻辑 -->
+    <filter>
+        <filter-name>gzipEncodingEnforcingFilter</filter-name>
+        <filter-class>com.netflix.eureka.GzipEncodingEnforcingFilter</filter-class>
+    </filter>
 
-  <filter-mapping>
-    <filter-name>statusFilter</filter-name>
-    <url-pattern>/*</url-pattern>
-  </filter-mapping>
+    <!-- jersey 启动容器，通过 filter 启动，类似于 springmvc 的 servlet  -->
+    <filter>
+        <filter-name>jersey</filter-name>
+        <filter-class>com.sun.jersey.spi.container.servlet.ServletContainer</filter-class>
+        <init-param>
+            <param-name>com.sun.jersey.config.property.WebPageContentRegex</param-name>
+            <param-value>/(flex|images|js|css|jsp)/.*</param-value>
+        </init-param>
+        <init-param>
+            <param-name>com.sun.jersey.config.property.packages</param-name>
+            <param-value>com.sun.jersey;com.netflix</param-value>
+        </init-param>
 
-  <filter-mapping>
-    <filter-name>requestAuthFilter</filter-name>
-    <url-pattern>/*</url-pattern>
-  </filter-mapping>
+        <!-- GZIP content encoding/decoding -->
+        <init-param>
+            <param-name>com.sun.jersey.spi.container.ContainerRequestFilters</param-name>
+            <param-value>com.sun.jersey.api.container.filter.GZIPContentEncodingFilter</param-value>
+        </init-param>
+        <init-param>
+            <param-name>com.sun.jersey.spi.container.ContainerResponseFilters</param-name>
+            <param-value>com.sun.jersey.api.container.filter.GZIPContentEncodingFilter</param-value>
+        </init-param>
+    </filter>
 
-  <!-- Uncomment this to enable rate limiter filter.
-  <filter-mapping>
-    <filter-name>rateLimitingFilter</filter-name>
-    <url-pattern>/v2/apps</url-pattern>
-    <url-pattern>/v2/apps/*</url-pattern>
-  </filter-mapping>
-  -->
+    <filter-mapping>
+        <filter-name>statusFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
 
-  <filter-mapping>
-    <filter-name>gzipEncodingEnforcingFilter</filter-name>
-    <url-pattern>/v2/apps</url-pattern>
-    <url-pattern>/v2/apps/*</url-pattern>
-  </filter-mapping>
+    <filter-mapping>
+        <filter-name>requestAuthFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
 
-  <filter-mapping>
-    <filter-name>jersey</filter-name>
-    <url-pattern>/*</url-pattern>
-  </filter-mapping>
+    <!-- Uncomment this to enable rate limiter filter.
+    <filter-mapping>
+      <filter-name>rateLimitingFilter</filter-name>
+      <url-pattern>/v2/apps</url-pattern>
+      <url-pattern>/v2/apps/*</url-pattern>
+    </filter-mapping>
+    -->
 
-  <welcome-file-list>
-    <welcome-file>jsp/status.jsp</welcome-file>
-  </welcome-file-list>
+    <filter-mapping>
+        <filter-name>gzipEncodingEnforcingFilter</filter-name>
+        <url-pattern>/v2/apps</url-pattern>
+        <url-pattern>/v2/apps/*</url-pattern>
+    </filter-mapping>
+
+    <filter-mapping>
+        <filter-name>jersey</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <welcome-file-list>
+        <welcome-file>jsp/status.jsp</welcome-file>
+    </welcome-file-list>
 
 </web-app>

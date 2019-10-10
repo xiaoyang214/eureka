@@ -108,6 +108,8 @@ public class ApplicationsResource {
      *
      * @return a response containing information about all {@link com.netflix.discovery.shared.Applications}
      *         from the {@link AbstractInstanceRegistry}.
+     *
+     *         获取全量注册表的方法
      */
     @GET
     public Response getContainers(@PathParam("version") String version,
@@ -140,7 +142,7 @@ public class ApplicationsResource {
             keyType = Key.KeyType.XML;
             returnMediaType = MediaType.APPLICATION_XML;
         }
-
+        // eureka server 端，支持在读取全量注册表的时候，搞了一套短小精悍的多级缓存机制， cacheKey 就是全量注册表的缓存 key
         Key cacheKey = new Key(Key.EntityType.Application,
                 ResponseCacheImpl.ALL_APPS,
                 keyType, CurrentRequestVersion.get(), EurekaAccept.fromString(eurekaAccept), regions
@@ -153,6 +155,7 @@ public class ApplicationsResource {
                     .header(HEADER_CONTENT_TYPE, returnMediaType)
                     .build();
         } else {
+            // 通过 cacheKey 获取对应的数据
             response = Response.ok(responseCache.get(cacheKey))
                     .build();
         }

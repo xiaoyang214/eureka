@@ -29,16 +29,19 @@ import org.slf4j.LoggerFactory;
  */
 public class MeasuredRate {
     private static final Logger logger = LoggerFactory.getLogger(MeasuredRate.class);
+    // 用来基于上一分钟的心跳次数
     private final AtomicLong lastBucket = new AtomicLong(0);
+    // 用来记录当前的心跳次数
     private final AtomicLong currentBucket = new AtomicLong(0);
-
+    // 都会传 60s
     private final long sampleInterval;
+    // 每分钟执行一次，每次任务都会将currentBucket的值设置到 lastBucket 中，并将 currentBucket 设置为 0
     private final Timer timer;
 
     private volatile boolean isActive;
 
     /**
-     * @param sampleInterval in milliseconds
+     * @param sampleInterval in milliseconds 一般是 60s
      */
     public MeasuredRate(long sampleInterval) {
         this.sampleInterval = sampleInterval;

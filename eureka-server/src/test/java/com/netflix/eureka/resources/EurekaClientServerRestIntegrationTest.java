@@ -231,7 +231,24 @@ public class EurekaClientServerRestIntegrationTest {
 
     }
 
+    /**
+     * 配置为使用 jetty 直接启动的方式
+     * @throws Exception
+     */
     private static void startServer() throws Exception {
+        // 找到对应的war包
+        // File warFile = findWar();
+        // 设置端口号
+        // server = new Server(8080);
+        // 配置 jetty 参数
+        // WebAppContext webapp = new WebAppContext();
+        // webapp.setContextPath("/");
+        // webapp.setWar(warFile.getAbsolutePath());
+        // server.setHandler(webapp);
+        //
+        // server.start();
+        //
+        // eurekaServiceUrl = "http://localhost:8080/v2";
         server = new Server(8080);
 
         WebAppContext webAppCtx = new WebAppContext(new File("./eureka-server/src/main/webapp").getAbsolutePath(), "/");

@@ -70,7 +70,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
                    
                    Integer count = amiCounts.get(ami);
                    if(count != null){
-                       amiCounts.put(ami, Integer.valueOf(count.intValue()+1));
+                       amiCounts.put(ami, count.intValue() + 1);
                    }else {
                        amiCounts.put(ami, Integer.valueOf(1));
                    }

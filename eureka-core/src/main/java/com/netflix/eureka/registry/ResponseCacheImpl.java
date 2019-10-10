@@ -129,6 +129,7 @@ public class ResponseCacheImpl implements ResponseCache {
         long responseCacheUpdateIntervalMs = serverConfig.getResponseCacheUpdateIntervalMs();
         this.readWriteCacheMap =
                 CacheBuilder.newBuilder().initialCapacity(1000)
+                        // 自动过期时间默认 180 s，定时过期
                         .expireAfterWrite(serverConfig.getResponseCacheAutoExpirationInSeconds(), TimeUnit.SECONDS)
                         .removalListener(new RemovalListener<Key, Value>() {
                             @Override
@@ -153,6 +154,7 @@ public class ResponseCacheImpl implements ResponseCache {
                         });
 
         if (shouldUseReadOnlyResponseCache) {
+            // 调度任务每隔 30s 执行一次
             timer.schedule(getCacheUpdateTask(),
                     new Date(((System.currentTimeMillis() / responseCacheUpdateIntervalMs) * responseCacheUpdateIntervalMs)
                             + responseCacheUpdateIntervalMs),
@@ -178,6 +180,9 @@ public class ResponseCacheImpl implements ResponseCache {
                     }
                     try {
                         CurrentRequestVersion.set(key.getVersion());
+                        // 如果 readWriteCacheMap 和 readOnlyCacheMap 中的数据比对
+                        // 如果不一致，将 readWriteCacheMap 中的值放到 readOnlyCacheMap中
+                        // 如果 readWriteCacheMap 中的缓存过期了或者被删除了，最多会在 30s 之后，将数据同步到 readOnlyCacheMap 中
                         Value cacheValue = readWriteCacheMap.get(key);
                         Value currentCacheValue = readOnlyCacheMap.get(key);
                         if (cacheValue != currentCacheValue) {
@@ -204,6 +209,7 @@ public class ResponseCacheImpl implements ResponseCache {
      * @return payload which contains information about the applications.
      */
     public String get(final Key key) {
+        // shouldUseReadOnlyResponseCache 默认为 true
         return get(key, shouldUseReadOnlyResponseCache);
     }
 
@@ -344,12 +350,20 @@ public class ResponseCacheImpl implements ResponseCache {
     Value getValue(final Key key, boolean useReadOnlyCache) {
         Value payload = null;
         try {
+            // 默认为 true
             if (useReadOnlyCache) {
+                /**
+                 * 使用了两个 map 做了这个缓存
+                 * readOnlyCacheMap (ConcurrentHashMap)
+                 * readWriteCacheMap (LoadingCache)
+                 */
                 final Value currentPayload = readOnlyCacheMap.get(key);
                 if (currentPayload != null) {
                     payload = currentPayload;
                 } else {
+                    // 如果读写缓存中为空，则通过 Guava 的 LoadingCache 的 get 方法从注册表中获取
                     payload = readWriteCacheMap.get(key);
+                    // 获取之后，放到只读缓存中去
                     readOnlyCacheMap.put(key, payload);
                 }
             } else {
@@ -407,7 +421,7 @@ public class ResponseCacheImpl implements ResponseCache {
                 case Application:
                     boolean isRemoteRegionRequested = key.hasRegions();
 
-                    if (ALL_APPS.equals(key.getName())) {
+                    if (ALL_APPS.equals(key.getName())) { // 获取全量注册表信息
                         if (isRemoteRegionRequested) {
                             tracer = serializeAllAppsWithRemoteRegionTimer.start();
                             payload = getPayLoad(key, registry.getApplicationsFromMultipleRegions(key.getRegions()));
@@ -415,7 +429,7 @@ public class ResponseCacheImpl implements ResponseCache {
                             tracer = serializeAllAppsTimer.start();
                             payload = getPayLoad(key, registry.getApplications());
                         }
-                    } else if (ALL_APPS_DELTA.equals(key.getName())) {
+                    } else if (ALL_APPS_DELTA.equals(key.getName())) { // 获取增量注册表信息
                         if (isRemoteRegionRequested) {
                             tracer = serializeDeltaAppsWithRemoteRegionTimer.start();
                             versionDeltaWithRegions.incrementAndGet();
